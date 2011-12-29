@@ -4,6 +4,10 @@
  * Copyright 2010 (c) James George, http://www.jamesgeorge.org
  * in collaboration with FlightPhase http://www.flightphase.com
  *
+ * Video & Audio sync'd recording + named device id's 
+ * added by gameover [matt gingold] (c) 2011 http://gingold.com.au
+ * with the support of hydra poesis http://hydrapoesis.net
+ *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
  * files (the "Software"), to deal in the Software without
@@ -59,6 +63,7 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 	QTCaptureDeviceInput *audioDeviceInput;
 	QTCaptureDevice* selectedVideoDevice;
 	QTCaptureDevice* selectedAudioDevice;
+    QTCaptureMovieFileOutput *captureMovieFileOutput;
 	NSInteger width, height;
 	NSInteger videoDeviceID, audioDeviceID;
 	
@@ -66,8 +71,8 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 	ofTexture* texture;
 	ofPixels* pixels;	
 
+    BOOL hasNewFrame;
 	BOOL isRunning;
-	BOOL hasNewFrame;
 	BOOL isFrameNew;
     BOOL isRecording;
 	BOOL isRecordReady;
@@ -84,6 +89,7 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 @property(retain) QTCaptureSession* session;
 @property(nonatomic, retain) QTCaptureDeviceInput* videoDeviceInput;
 @property(nonatomic, retain) QTCaptureDeviceInput* audioDeviceInput;
+@property(nonatomic, retain) QTCaptureMovieFileOutput *captureMovieFileOutput;
 @property(nonatomic, readonly) BOOL isRunning;
 @property(readonly) ofPixels* pixels;
 @property(readonly) ofTexture* texture;
@@ -104,6 +110,10 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 		usingTexture:(BOOL)_useTexture
 		  usingAudio:(BOOL)_useAudio;
 
+- (id) initWithoutPreview:(NSInteger)_videoDeviceID 
+			  audiodevice:(NSInteger)_audioDeviceID 
+			   usingAudio:(BOOL)_useAudio;
+
 - (void) outputVideoFrame:(CVImageBufferRef)videoFrame 
 		 withSampleBuffer:(QTSampleBuffer *)sampleBuffer 
 		   fromConnection:(QTCaptureConnection *)connection;
@@ -113,6 +123,15 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 
 - (void) setVideoDeviceID:(NSInteger)_videoDeviceID;
 - (void) setAudioDeviceID:(NSInteger)_audioDeviceID;
+
+- (void) initRecording:(NSString*)_selectedVideoCodec audioCodec:(NSString*)_selectedAudioCodec;
+- (void) setVideoCodec:(NSString*)_selectedVideoCodec;
+- (void) setAudioCodec:(NSString*)_selectedAudioCodec;
+- (void) startRecording:(NSString*)filePath;
+- (void) stopRecording;
+
++ (NSArray*) listVideoCodecs;
++ (NSArray*) listAudioCodecs;
 
 + (void) enumerateArray:(NSArray*)someArray;
 + (int)	 getIndexofStringInArray:(NSArray*)someArray stringToFind:(NSString*)someStringDescription;
@@ -131,6 +150,7 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 @synthesize audioDeviceID;
 @synthesize videoDeviceInput;
 @synthesize audioDeviceInput;
+@synthesize captureMovieFileOutput;
 @synthesize pixels;
 @synthesize texture;
 @synthesize isFrameNew;
@@ -254,6 +274,60 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 	return self;
 }
 
+- (id) initWithoutPreview:(NSInteger)_videoDeviceID audiodevice:(NSInteger)_audioDeviceID usingAudio:(BOOL)_useAudio
+{
+	if((self = [super init])){
+		//configure self
+		width = 0;
+		height = 0;
+		
+		//instance variables
+		cvFrame = NULL;
+		hasNewFrame = NO;
+		texture = NULL;
+		self.useTexture = NO;
+		self.useAudio = _useAudio;
+		isRecordReady = NO;
+		isRecording = NO;
+		
+		//init the session
+		self.session = [[[QTCaptureSession alloc] init] autorelease];
+		
+		NSError* error;
+		bool success = [self.session addOutput:self error:&error];
+		if( !success ){
+			ofLog(OF_LOG_ERROR, "ofxQTKitVideoGrabber - ERROR - Error creating capture session");
+			return nil;
+		}
+		
+		videoDeviceID = -1;		
+		[self setVideoDeviceID:_videoDeviceID];
+		
+		// if we're using audio add an audio device										[added by gameover]
+		if (self.useAudio) {
+			audioDeviceID = -1;
+			[self setAudioDeviceID:_audioDeviceID];
+		}
+		
+		// give us some info about the 'native format' of our device/s					[added by gameover]
+		NSEnumerator *videoConnectionEnumerator = [[videoDeviceInput connections] objectEnumerator];
+		QTCaptureConnection *videoConnection;
+		
+		while ((videoConnection = [videoConnectionEnumerator nextObject])) {
+			NSLog(@"Video Input Format: %@\n", [[videoConnection formatDescription] localizedFormatSummary]);
+		}
+		
+		NSEnumerator *audioConnectionEnumerator = [[audioDeviceInput connections] objectEnumerator];
+		QTCaptureConnection *audioConnection;
+		while ((audioConnection = [audioConnectionEnumerator nextObject])) {
+			NSLog(@"Audio Input Format: %@\n", [[audioConnection formatDescription] localizedFormatSummary]);
+		}   
+		
+		[self startSession];
+	}
+	return self;
+}
+
 - (void) startSession
 {
 	//start the session
@@ -365,6 +439,106 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 	return success;
 }
 
+- (void) initRecording:(NSString*)_selectedVideoCodec audioCodec:(NSString*)_selectedAudioCodec
+{
+	BOOL success = YES;	
+	NSError *error = nil;
+	
+	// Create the movie file output and add it to the session		[added by gameover]
+	captureMovieFileOutput = [[QTCaptureMovieFileOutput alloc] init];
+	success = [self.session addOutput:captureMovieFileOutput error:&error];
+	if (!success) {
+		ofLog(OF_LOG_ERROR, "ofxQTKitVideoGrabber - ERROR - Error adding capture output to session");
+	} else {
+		
+		[self setVideoCodec:_selectedVideoCodec];
+		[self setAudioCodec:_selectedAudioCodec];
+		
+		isRecordReady = YES;
+	}
+}
+
++ (NSArray*) listVideoCodecs
+{
+	NSArray* videoCodecs = [QTCompressionOptions compressionOptionsIdentifiersForMediaType:QTMediaTypeVideo];
+	
+	NSLog(@"ofxQTKitVideoGrabber listing video compression options"); 
+	[self enumerateArray:videoCodecs];
+	
+	return videoCodecs;
+}
+
++ (NSArray*) listAudioCodecs
+{
+	NSArray* audioCodecs = [QTCompressionOptions compressionOptionsIdentifiersForMediaType:QTMediaTypeSound];
+	
+	NSLog(@"ofxQTKitVideoGrabber listing audio compression options"); 
+	[self enumerateArray:audioCodecs];
+	
+	return audioCodecs;
+}
+
+- (void) setVideoCodec:(NSString*)_selectedVideoCodec
+{
+	// set codec on connection for type Video
+	NSArray *outputConnections = [captureMovieFileOutput connections];
+	QTCaptureConnection *connection;
+	for (connection in outputConnections)
+	{
+		if ([[connection mediaType] isEqualToString:QTMediaTypeVideo])
+			[captureMovieFileOutput setCompressionOptions:[QTCompressionOptions compressionOptionsWithIdentifier:_selectedVideoCodec] forConnection:connection];
+	}
+}
+
+- (void) setAudioCodec:(NSString*)_selectedAudioCodec
+{
+	// set codec on connection for type Sound
+	NSArray *outputConnections = [captureMovieFileOutput connections];
+	QTCaptureConnection *connection;
+	for (connection in outputConnections)
+	{
+		if ([[connection mediaType] isEqualToString:QTMediaTypeSound])
+			[captureMovieFileOutput setCompressionOptions:[QTCompressionOptions compressionOptionsWithIdentifier:_selectedAudioCodec] forConnection:connection];
+	}
+}
+
+- (void) startRecording:(NSString*)filePath
+{
+	if (isRecordReady) {
+		
+		BOOL success = YES;
+		NSError *error = nil;
+		
+		if (isRecording) [self stopRecording]; // make sure last movie has stopped
+		
+		// set url for recording
+		[captureMovieFileOutput recordToOutputFileURL:[NSURL fileURLWithPath:filePath]];
+		
+		ofLog(OF_LOG_VERBOSE, "Started recording movie to: %s", [filePath cString]);
+		
+		isRecording = YES;
+		
+	} else {
+		ofLog(OF_LOG_ERROR, "ofxQTKitVideoGrabber - ERROR - Not set up to record - call initRecording first");
+	}
+}
+
+- (void) stopRecording
+{
+	if (isRecordReady) {
+		
+		// set url to nil to stop recording
+		[captureMovieFileOutput recordToOutputFileURL:nil];
+		
+		ofLog(OF_LOG_VERBOSE, "Stopped recording movie");
+		
+		isRecording = NO;
+		
+	} else {
+		ofLog(OF_LOG_ERROR, "ofxQTKitVideoGrabber - ERROR - Not set up to record - call initRecording first");
+	}
+}
+
 //Frame from the camera
 //this tends to be fired on a different thread, so keep the work really minimal
 - (void) outputVideoFrame:(CVImageBufferRef)videoFrame 
@@ -474,11 +648,17 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 - (void) stop
 {
 	if(self.isRunning){
+		if (isRecording) [self stopRecording];
 		[self.session stopRunning];
+		if ([[videoDeviceInput device] isOpen]) [[videoDeviceInput device] close];
+		if ([[audioDeviceInput device] isOpen]) [[audioDeviceInput device] close];
+		[videoDeviceInput release];
+		[audioDeviceInput release];
+		[captureMovieFileOutput release];
+		//[super dealloc];															// possible mem leak but otherwise we crash on closing??
 	}	
-	
 	self.session = nil;
-	
+	free(pixels);
 	if(texture != NULL){
 		delete texture;
 	}
@@ -496,6 +676,8 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 ofxQTKitVideoGrabber::ofxQTKitVideoGrabber(){
 	videoDeviceID = 0;
 	audioDeviceID = 0;
+    videoCodecIDString = "QTCompressionOptionsJPEGVideo";					// setting default video codec
+	audioCodecIDString = "QTCompressionOptionsHighQualityAACAudio";			// setting audio video codec
 	grabber = NULL;
 	isInited = false;
 	bUseTexture = true;
@@ -574,6 +756,76 @@ bool ofxQTKitVideoGrabber::initGrabber(int w, int h){
 	grabber = [[QTKitVideoGrabber alloc] initWithWidth:w height:h videodevice:videoDeviceID audiodevice:audioDeviceID usingTexture:bUseTexture usingAudio:bUseAudio];
 	isInited = (grabber != nil);
 	[pool release];
+}
+
+// used to init with no texture or preview etc ie., recording only
+void ofxQTKitVideoGrabber::initGrabberWithoutPreview(){
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	grabber = [[QTKitVideoGrabber alloc] initWithoutPreview:videoDeviceID audiodevice:audioDeviceID usingAudio:bUseAudio];
+	isInited = (grabber != nil);
+	[pool release];	
+}
+
+void ofxQTKitVideoGrabber::initRecording(){
+	if(confirmInit()){
+		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+		NSString * NSvideoCodec = [NSString stringWithUTF8String: videoCodecIDString.c_str()];
+		NSString * NSaudioCodec = [NSString stringWithUTF8String: audioCodecIDString.c_str()];
+		[grabber initRecording:NSvideoCodec audioCodec:NSaudioCodec];
+		[pool release];	
+	}
+}
+
+vector<string>& ofxQTKitVideoGrabber::listVideoCodecs(){
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSArray* videoCodecs = [QTKitVideoGrabber listVideoCodecs];
+	videoCodecsVec.clear();
+	for (id object in videoCodecs){
+		string str = [[object description] cStringUsingEncoding: NSASCIIStringEncoding];
+		videoCodecsVec.push_back(str);
+	}
+	[pool release];	
+	return videoCodecsVec;
+}
+
+vector<string>& ofxQTKitVideoGrabber::listAudioCodecs(){
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSArray* audioCodecs = [QTKitVideoGrabber listAudioCodecs];
+	audioCodecsVec.clear();
+	for (id object in audioCodecs){
+		string str = [[object description] cStringUsingEncoding: NSASCIIStringEncoding];
+		audioCodecsVec.push_back(str);
+	}
+	[pool release];	
+	return audioCodecsVec;
+}
+
+void ofxQTKitVideoGrabber::setVideoCodec(string _videoCodec){
+	videoCodecIDString = _videoCodec;	
+	if(isInited){
+		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];	
+		NSString * NSvideoCodec = [NSString stringWithUTF8String: videoCodecIDString.c_str()];
+		[grabber setVideoCodec:NSvideoCodec];
+		[pool release];
+	}
+	
+}
+
+void ofxQTKitVideoGrabber::setAudioCodec(string _audioCodec){
+	audioCodecIDString = _audioCodec;	
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];	
+	NSString * NSaudioCodec = [NSString stringWithUTF8String: audioCodecIDString.c_str()];
+	[grabber setVideoCodec:NSaudioCodec];
+	[pool release];
+}
+
+void ofxQTKitVideoGrabber::startRecording(string filePath){
+	NSString * NSfilePath = [NSString stringWithUTF8String: filePath.c_str()];
+	[grabber startRecording:NSfilePath];
+}
+
+void ofxQTKitVideoGrabber::stopRecording(){
+	[grabber stopRecording];
 }
 
 void ofxQTKitVideoGrabber::update(){ 

@@ -4,6 +4,10 @@
  * Copyright 2010 (c) James George, http://www.jamesgeorge.org
  * in collaboration with FlightPhase http://www.flightphase.com
  *
+ * Video & Audio sync'd recording + named device id's 
+ * added by gameover [matt gingold] (c) 2011 http://gingold.com.au
+ * with the support of hydra poesis http://hydrapoesis.net
+ *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
  * files (the "Software"), to deal in the Software without
@@ -67,7 +71,19 @@ class ofxQTKitVideoGrabber : public ofBaseVideoGrabber
 	ofTexture&		getTextureReference();
 	void 			setVerbose(bool bTalkToMe);
 	void 			setUseTexture(bool bUse);
+    
+    // [added by gameover]
     void            setUseAudio(bool bUseAudio);
+	void			initRecording();
+	void			initGrabberWithoutPreview();	// used to init with no preview/textures etc
+	vector<string>&	listVideoCodecs();
+	vector<string>&	listAudioCodecs();
+	void			setVideoCodec(string videoCodecIDString);
+	void			setAudioCodec(string audioCodecIDString);
+	void			startRecording(string filePath);
+	void			stopRecording();
+	bool			isRecording();
+	bool			isReady();
 	
     void            listDevices(); // would be better if this returned a vector of devices too, but requires updating base class
 	vector<string>&	listAudioDevices();
@@ -93,12 +109,18 @@ class ofxQTKitVideoGrabber : public ofBaseVideoGrabber
 	
   protected:
 
+    bool confirmInit();
+    
     vector<string>	videoDeviceVec;
 	vector<string>	audioDeviceVec;
+    vector<string>	videoCodecsVec;
+	vector<string>	audioCodecsVec;
     
     int	videoDeviceID;
 	int	audioDeviceID;
-    bool confirmInit();
+    string	videoCodecIDString;
+	string	audioCodecIDString;
+    
 	bool isInited;
 	bool bUseTexture;
     bool bUseAudio;
