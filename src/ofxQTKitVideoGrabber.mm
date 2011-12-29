@@ -82,7 +82,8 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 @property(nonatomic, readwrite) BOOL verbose;
 @property(nonatomic, readwrite) BOOL useTexture;
 
-+ (void) listDevices;
++ (NSArray*) listDevices;
++ (NSArray*) listAudioDevices;
 
 - (id) initWithWidth:(NSInteger)width 
 			  height:(NSInteger)height 
@@ -94,6 +95,10 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 		   fromConnection:(QTCaptureConnection *)connection;
 
 - (bool) setSelectedVideoDevice:(QTCaptureDevice *)selectedVideoDevice;
+
++ (void) enumerateArray:(NSArray*)someArray;
++ (int)	 getIndexofStringInArray:(NSArray*)someArray stringToFind:(NSString*)someStringDescription;
+
 - (void) videoSettings;
 - (void) startSession;
 - (void) update;
@@ -113,12 +118,53 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 @synthesize verbose;
 @synthesize useTexture;
 
-+ (void) listDevices
++ (void) enumerateArray:(NSArray*)someArray
 {
-	NSLog(@"ofxQTKitVideoGrabber devices %@", 
-		  [[QTCaptureDevice inputDevicesWithMediaType:QTMediaTypeVideo] 
-		   arrayByAddingObjectsFromArray:[QTCaptureDevice inputDevicesWithMediaType:QTMediaTypeMuxed]]);
+	NSInteger count = 0;
+	for (id object in someArray) 
+	{
+		NSLog(@"%d - %@", count, [object description]);
+		count++;
+	}
+	NSLog(@"\n");
+}
+
++ (int) getIndexofStringInArray:(NSArray*)someArray stringToFind:(NSString*)someStringDescription
+{
+	NSInteger count = 0;
+	NSInteger index = -1;
 	
+	for (id object in someArray) 
+	{
+		if ([[object description] isEqualToString:someStringDescription]) {
+			index = count;
+			break;
+		} else count++;
+	}
+	
+	return index;
+}
+
++ (NSArray*) listDevices
+{
+	NSArray* videoDevices = [[QTCaptureDevice inputDevicesWithMediaType:QTMediaTypeVideo] 
+							 arrayByAddingObjectsFromArray:[QTCaptureDevice inputDevicesWithMediaType:QTMediaTypeMuxed]];
+	
+	NSLog(@"ofxQTKitVideoGrabber listing video devices");
+	[self enumerateArray:videoDevices];
+	
+	return videoDevices;
+	
+}
+
++ (NSArray*) listAudioDevices
+{
+	NSArray* audioDevices = [QTCaptureDevice inputDevicesWithMediaType:QTMediaTypeSound];
+	
+	NSLog(@"ofxQTKitVideoGrabber listing audio devices");
+	[self enumerateArray:audioDevices];
+	
+	return audioDevices;
 }
 
 - (id) initWithWidth:(NSInteger)_width height:(NSInteger)_height device:(NSInteger)_deviceID usingTexture:(BOOL)_useTexture
@@ -401,8 +447,44 @@ bool ofxQTKitVideoGrabber::isFrameNew(){
 	return isInited && [grabber isFrameNew];
 }
 
+// would be better if listDevices returned a vector of devices too, 
+// but that requires updating the base class...perhaps we could
+// then have a ofBaseDevice class to be used for enumerating any 
+// type of device for video, sound, serial devices etc etc???
 void ofxQTKitVideoGrabber::listDevices(){
-	[QTKitVideoGrabber listDevices];	
+    
+    listVideoDevices();
+    
+}
+
+vector<string>& ofxQTKitVideoGrabber::listVideoDevices(){
+    
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSArray* videoDevices = [QTKitVideoGrabber listDevices];
+	videoDeviceVec.clear();
+	for (id object in videoDevices) 
+	{
+		string str = [[object description] cStringUsingEncoding: NSASCIIStringEncoding];
+		videoDeviceVec.push_back(str);
+	}
+	[pool release];
+	return videoDeviceVec;
+	
+}
+
+vector<string>& ofxQTKitVideoGrabber::listAudioDevices(){
+    
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSArray* audioDevices = [QTKitVideoGrabber listAudioDevices];
+	audioDeviceVec.clear();
+	for (id object in audioDevices) 
+	{
+		string str = [[object description] cStringUsingEncoding: NSASCIIStringEncoding];
+		audioDeviceVec.push_back(str);
+	}
+	[pool release];
+	return audioDeviceVec;
+    
 }
 
 void ofxQTKitVideoGrabber::close(){	

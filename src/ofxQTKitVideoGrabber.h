@@ -61,7 +61,9 @@ class ofxQTKitVideoGrabber : public ofBaseVideoGrabber
 	void			update();
 	void 			setUseTexture(bool bUse);
 	
-	void 			listDevices();
+    void            listDevices();  // would be better if this returned a vector of devices too, but requires updating base class!!!
+	vector<string>&	listAudioDevices();
+	vector<string>&	listVideoDevices();
 	void			close();
 	unsigned char	*getPixels();
 	ofPixelsRef		getPixelsRef();
@@ -80,6 +82,9 @@ class ofxQTKitVideoGrabber : public ofBaseVideoGrabber
 	
   protected:
 
+    vector<string>	videoDeviceVec;
+	vector<string>	audioDeviceVec;
+    
 	bool confirmInit();
 	int deviceID;
 	bool isInited;
