@@ -881,6 +881,14 @@ bool ofxQTKitVideoGrabber::isFrameNew(){
 	return isInited && [grabber isFrameNew];
 }
 
+bool ofxQTKitVideoGrabber::isReady(){
+	return isInited;
+}
+
+bool ofxQTKitVideoGrabber::isRecording(){
+	return isReady() && [grabber isRecording];
+}
+
 // would be better if listDevices returned a vector of devices too, 
 // but that requires updating the base class...perhaps we could
 // then have a ofBaseDevice class to be used for enumerating any 
