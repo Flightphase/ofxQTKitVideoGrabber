@@ -56,39 +56,53 @@ class ofxQTKitVideoGrabber : public ofBaseVideoGrabber
 	~ofxQTKitVideoGrabber();
    
 	bool			initGrabber(int w, int h);
-	void			grabFrame();
 	bool			isFrameNew();
 	void			update();
+    void 			draw(float x, float y, float w, float h);
+	void 			draw(float x, float y);
+    float 			getWidth();
+	float 			getHeight();
+    unsigned char*  getPixels();
+	ofPixelsRef		getPixelsRef();
+	ofTexture&		getTextureReference();
+	void 			setVerbose(bool bTalkToMe);
 	void 			setUseTexture(bool bUse);
+    void            setUseAudio(bool bUseAudio);
 	
-    void            listDevices();  // would be better if this returned a vector of devices too, but requires updating base class!!!
+    void            listDevices(); // would be better if this returned a vector of devices too, but requires updating base class
 	vector<string>&	listAudioDevices();
 	vector<string>&	listVideoDevices();
+    
 	void			close();
-	unsigned char	*getPixels();
-	ofPixelsRef		getPixelsRef();
-	
-	ofTexture &		getTextureReference();
-	void 			setVerbose(bool bTalkToMe);
-	void			setDeviceID(int deviceID);
+    
+	void			setDeviceID(int videoDeviceID);
+	void			setDeviceID(string videoDeviceIDString);
 	int				getDeviceID();
+    
+	void			setVideoDeviceID(int videoDeviceID);
+	void			setVideoDeviceID(string videoDeviceIDString);
+	int				getVideoDeviceID();
+    
+	void			setAudioDeviceID(int audioDeviceID);
+	void			setAudioDeviceID(string audioDeviceIDString);
+	int				getAudioDeviceID();
+    
 	void			setDesiredFrameRate(int framerate){ ofLog(OF_LOG_WARNING, "ofxQTKitVideoGrabber -- Cannot specify framerate.");  };
-	void			videoSettings();
-	void 			draw(float x, float y, float w, float h);
-	void 			draw(float x, float y);
 	
-	float 			getHeight();
-	float 			getWidth();
+    void			videoSettings();
 	
   protected:
 
     vector<string>	videoDeviceVec;
 	vector<string>	audioDeviceVec;
     
-	bool confirmInit();
-	int deviceID;
+    int	videoDeviceID;
+	int	audioDeviceID;
+    bool confirmInit();
 	bool isInited;
 	bool bUseTexture;
+    bool bUseAudio;
+    
 	#ifdef __OBJC__
 	QTKitVideoGrabber* grabber; //only obj-c needs to know the type of this protected var
 	#else
