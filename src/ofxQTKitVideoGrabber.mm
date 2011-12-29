@@ -136,6 +136,8 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 + (int)	 getIndexofStringInArray:(NSArray*)someArray stringToFind:(NSString*)someStringDescription;
 
 - (void) videoSettings;
+- (void) audioSettings;
+
 - (void) startSession;
 - (void) update;
 - (void) stop;
@@ -644,6 +646,48 @@ static inline void argb_to_rgb(unsigned char* src, unsigned char* dst, int numPi
 	
 }
 
+// not sure if this works at all but worth a try [gameover]
+- (void) audioSettings
+{
+	NSDictionary* attr = [self.audioDeviceInput.device deviceAttributes];
+	if (attr == NULL) {
+		ofLog(OF_LOG_WARNING, "ofxQTKitVideoGrabber -- Warning: Audio Settings not available for this audio device");
+		return;
+	}
+	
+	NSValue* sgnum = [attr objectForKey:QTCaptureDeviceLegacySequenceGrabberAttribute];
+	if (sgnum == NULL) {
+		ofLog(OF_LOG_WARNING, "ofxQTKitVideoGrabber -- Warning: Audio Settings not available for this audio device");
+		return;
+	}
+	
+	
+	OSErr err;
+	SeqGrabComponent sg = (SeqGrabComponent)[sgnum pointerValue];
+	SGChannel chan;
+	OSType type;
+	
+	err = SGPause (sg, true);
+	if(err){
+		ofLog(OF_LOG_ERROR, "ofxQTKitVideoGrabber -- Could not pause for audio settings");
+	}
+	
+	static SGModalFilterUPP gSeqGrabberModalFilterUPP = NewSGModalFilterUPP(SeqGrabberModalFilterUPP);
+	err = SGGetIndChannel(sg, 1, &chan, &type );
+	if (err == noErr){
+		ComponentResult result = SGSettingsDialog(sg, chan, 0, NULL, 0, gSeqGrabberModalFilterUPP, 0 );
+		if(result != noErr){
+			ofLog(OF_LOG_ERROR, "ofxQTKitVideoGrabber -- Error in Sequence Grabber Dialog");
+		}
+	}
+	else{
+		ofLog(OF_LOG_ERROR, "ofxQTKitVideoGrabber -- Could not init channel");
+	}
+	
+	SGPause(sg, false);
+	
+}
+
 - (void) stop
 {
 	if(self.isRunning){
@@ -927,6 +971,16 @@ void ofxQTKitVideoGrabber::videoSettings(){
 	if(confirmInit()){
 		NSLog(@"loading video settings");
 		[grabber videoSettings];
+	}
+}
+
+// no idea if this really works??? [gameover]
+void ofxQTKitVideoGrabber::audioSettings(){
+	if(confirmInit()){
+		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];		// was leaking before [added by gameover]
+		NSLog(@"loading audio settings");
+		[grabber audioSettings];
+		[pool release];
 	}
 }
 

@@ -73,13 +73,13 @@ class ofxQTKitVideoGrabber : public ofBaseVideoGrabber
 	void 			setUseTexture(bool bUse);
     
     // [added by gameover]
-    void            setUseAudio(bool bUseAudio);
 	void			initRecording();
 	void			initGrabberWithoutPreview();	// used to init with no preview/textures etc
 	vector<string>&	listVideoCodecs();
 	vector<string>&	listAudioCodecs();
 	void			setVideoCodec(string videoCodecIDString);
 	void			setAudioCodec(string audioCodecIDString);
+    void            setUseAudio(bool bUseAudio);
 	void			startRecording(string filePath);
 	void			stopRecording();
 	bool			isRecording();
@@ -106,7 +106,8 @@ class ofxQTKitVideoGrabber : public ofBaseVideoGrabber
 	void			setDesiredFrameRate(int framerate){ ofLog(OF_LOG_WARNING, "ofxQTKitVideoGrabber -- Cannot specify framerate.");  };
 	
     void			videoSettings();
-	
+	void            audioSettings();
+    
   protected:
 
     bool confirmInit();
