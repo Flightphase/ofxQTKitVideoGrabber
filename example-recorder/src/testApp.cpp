@@ -94,7 +94,7 @@ void testApp::keyPressed  (int key){
 	switch (key) {
 		case ' ':
 			if (!vidGrabber.isRecording()) {
-				vidGrabber.startRecording(ofToDataPath("output.mov")); // dumps to data folder
+				vidGrabber.startRecording("output.mov"); // dumps to data folder
 			} else vidGrabber.stopRecording();
 			break;
 		default:

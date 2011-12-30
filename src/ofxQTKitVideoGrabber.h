@@ -42,8 +42,7 @@
  * Requires Mac OS 10.5 or greater
  */
 
-#ifndef _OFX_QTKITVIDEOGRABBER
-#define _OFX_QTKITVIDEOGRABBER
+#pragma once 
 
 #include "ofMain.h"
 
@@ -133,4 +132,3 @@ class ofxQTKitVideoGrabber : public ofBaseVideoGrabber
 	#endif
 };
 
-#endif

@@ -863,7 +863,7 @@ void ofxQTKitVideoGrabber::setAudioCodec(string _audioCodec){
 }
 
 void ofxQTKitVideoGrabber::startRecording(string filePath){
-	NSString * NSfilePath = [NSString stringWithUTF8String: filePath.c_str()];
+	NSString * NSfilePath = [NSString stringWithUTF8String: ofToDataPath(filePath).c_str()];
 	[grabber startRecording:NSfilePath];
 }
 
