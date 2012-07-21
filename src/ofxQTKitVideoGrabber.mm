@@ -824,7 +824,7 @@ vector<string>& ofxQTKitVideoGrabber::listVideoCodecs(){
 	NSArray* videoCodecs = [QTKitVideoGrabber listVideoCodecs];
 	videoCodecsVec.clear();
 	for (id object in videoCodecs){
-		string str = [[object description] cStringUsingEncoding: NSASCIIStringEncoding];
+		string str = [[object description] UTF8String];
 		videoCodecsVec.push_back(str);
 	}
 	[pool release];	
@@ -836,7 +836,7 @@ vector<string>& ofxQTKitVideoGrabber::listAudioCodecs(){
 	NSArray* audioCodecs = [QTKitVideoGrabber listAudioCodecs];
 	audioCodecsVec.clear();
 	for (id object in audioCodecs){
-		string str = [[object description] cStringUsingEncoding: NSASCIIStringEncoding];
+		string str = [[object description] UTF8String];
 		audioCodecsVec.push_back(str);
 	}
 	[pool release];	
@@ -902,7 +902,7 @@ vector<string>& ofxQTKitVideoGrabber::listVideoDevices(){
 	NSArray* videoDevices = [QTKitVideoGrabber listDevices];
 	videoDeviceVec.clear();
 	for (id object in videoDevices){
-		string str = [[object description] cStringUsingEncoding: NSASCIIStringEncoding];
+		string str = [[object description] UTF8String];
 		videoDeviceVec.push_back(str);
 	}
 	[pool release];
@@ -915,7 +915,7 @@ vector<string>& ofxQTKitVideoGrabber::listAudioDevices(){
 	NSArray* audioDevices = [QTKitVideoGrabber listAudioDevices];
 	audioDeviceVec.clear();
 	for (id object in audioDevices){
-		string str = [[object description] cStringUsingEncoding: NSASCIIStringEncoding];
+		string str = [[object description] UTF8String];
 		audioDeviceVec.push_back(str);
 	}
 	[pool release];
